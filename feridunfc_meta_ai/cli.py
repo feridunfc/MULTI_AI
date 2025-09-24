@@ -1,3 +1,5 @@
+from dotenv import load_dotenv
+load_dotenv()
 # feridunfc_meta_ai/cli.py
 import anyio, typer, logging
 from pathlib import Path
@@ -50,3 +52,4 @@ def main(
 
 if __name__ == "__main__":
     app()
+

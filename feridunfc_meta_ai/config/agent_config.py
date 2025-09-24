@@ -1,31 +1,8 @@
-# feridunfc_meta_ai/config/agent_config.py
+﻿# feridunfc_meta_ai/config/agent_config.py
 AGENT_MODEL_MAP = {
-    "architect": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),   # ek
-        ("deepseek","deepseek-chat"),
-    ],
-    "codegen": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),   # ek
-        ("deepseek","deepseek-chat"),
-    ],
-    "tester": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),   # ek
-        ("deepseek","deepseek-chat"),
-    ],
-    "critic": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),   # ek
-        ("deepseek","deepseek-chat"),
-    ],
-    "debugger": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),
-    ],
-    "integrator": [
-        ("openai",  "gpt-4o-mini"),
-        ("gemini",  "gemini-1.5-flash"),
-    ],
+    # Sağlayıcı sırası: gemini -> openai -> deepseek
+    "architect": [("gemini", "gemini-1.5-flash"), ("openai","gpt-4o-mini"), ("deepseek","deepseek-chat")],
+    "codegen":   [("gemini", "gemini-1.5-flash"), ("openai","gpt-4o-mini"), ("deepseek","deepseek-coder")],
+    "critic":    [("gemini", "gemini-1.5-flash"), ("openai","gpt-4o-mini")],
+    "tester":    [("gemini", "gemini-1.5-flash"), ("openai","gpt-4o-mini")],
 }

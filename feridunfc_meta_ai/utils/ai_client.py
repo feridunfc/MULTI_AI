@@ -12,8 +12,12 @@ from tenacity import (
     wait_random_exponential,
     retry_if_exception,
 )
+from dotenv import load_dotenv
 
 from ..config.agent_config import AGENT_MODEL_MAP
+
+# .env mutlaka yüklensin
+load_dotenv()
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +35,12 @@ FALLBACK_STATUS = {401, 402, 403, 429} | RETRYABLE_STATUS
 
 
 def _is_retryable_http(e: Exception) -> bool:
-    """HTTP transport ve retryable status kodlarını yeniden dene."""
     if isinstance(e, httpx.HTTPStatusError):
         return e.response is not None and e.response.status_code in RETRYABLE_STATUS
     return isinstance(e, httpx.TransportError)
 
 
 def _retry_after_hint(headers: httpx.Headers) -> str:
-    """Header'lardan bekleme ipucunu (saniye) sadece log için çıkar."""
     ra = headers.get("Retry-After") or headers.get("retry-after")
     if ra:
         return f"Retry-After={ra}"
@@ -51,16 +53,13 @@ def _retry_after_hint(headers: httpx.Headers) -> str:
 
 class AIClient:
     def __init__(self, timeout: int = 30):
-        # Client seviyesinde sadece ASCII User-Agent tut
         self.client = httpx.AsyncClient(timeout=timeout, headers={"User-Agent": ASCII_USER_AGENT})
 
     async def aclose(self):
         await self.client.aclose()
 
-    # Sağlayıcı sırası (agent rolüne göre)
     def _providers_for_role(self, agent_role: str):
         providers = AGENT_MODEL_MAP.get(agent_role, [])
-        # FORCE_PROVIDER başa al
         force = os.getenv("FORCE_PROVIDER", "").strip().lower()
         if force:
             if force == "mock":
@@ -90,7 +89,6 @@ class AIClient:
                 sc = e.response.status_code if e.response is not None else None
                 hint = _retry_after_hint(e.response.headers) if e.response is not None else ""
                 logger.error("%s call failed (%s)%s", prov, sc, f" ({hint})" if hint else "")
-                # Bu status kodlarında bir sonraki sağlayıcıya düş
                 if sc in FALLBACK_STATUS:
                     last_err = e
                     continue
@@ -143,7 +141,6 @@ class AIClient:
                     logger.warning("OpenAI 429; sunucu ipucu: %s", hint)
                 else:
                     logger.warning("OpenAI 429; sunucu ipucu: yok")
-                # HTTPStatusError yerine RuntimeError -> tenacity bunu retry etmeyecek, call_model fallback'e geçecek
                 raise RuntimeError("OpenAI 429")
             raise
 
@@ -192,12 +189,10 @@ class AIClient:
         reraise=True,
     )
     async def call_gemini(self, model: str, prompt: str, system: str):
-        # Destek: GEMINI_API_KEY veya GOOGLE_API_KEY
         api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
         if not api_key:
             raise RuntimeError("GEMINI_API_KEY (veya GOOGLE_API_KEY) is not set")
 
-        # Gemini REST: ?key=API_KEY ile auth, content yapısı farklı
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
         headers = {"Content-Type": "application/json"}
         body = {
@@ -206,10 +201,7 @@ class AIClient:
                 "parts": [{"text": system or "You output only JSON."}],
             },
             "contents": [
-                {
-                    "role": "user",
-                    "parts": [{"text": prompt}],
-                }
+                {"role": "user", "parts": [{"text": prompt}]}
             ],
             "generationConfig": {
                 "temperature": 0.2,
@@ -228,7 +220,6 @@ class AIClient:
             raise
 
         js = r.json()
-        # Tipik yanıt: candidates[0].content.parts[0].text
         text = ""
         try:
             cands = js.get("candidates") or []
@@ -238,7 +229,6 @@ class AIClient:
         except Exception:
             pass
 
-        # Eğer text boşsa tüm JSON'u string olarak döndür (diagnostic)
         return SimpleNamespace(content=(text or json.dumps(js)), usage=js.get("usageMetadata", {}))
 
     # --- MOCK cevabı ---
@@ -290,5 +280,3 @@ class AIClient:
             return SimpleNamespace(content=json.dumps(plan), usage={"mock": True})
 
         return SimpleNamespace(content="MOCK_OK", usage={"mock": True})
-
-
